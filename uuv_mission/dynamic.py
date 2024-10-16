@@ -78,12 +78,35 @@ class Mission:
         # You are required to implement this method
         import pandas as pd
         df = pd.read_csv(file_name)
-        return cls(df.iloc[:,0], df.iloc[:,1], df.iloc[:,2])
+        (reference, cave_height, cave_depth) = (df.iloc[:,0], df.iloc[:,1], df.iloc[:,2])
+        return cls(reference, cave_height, cave_depth)
         
+class Control:
+    def controller(self, t, mission: Mission):
+        self.Kp = 0.15
+        self.Kd = 0.4
+        if t == 0:
+            self.previous_error = 0.0
+            self.current_error = mission.reference[t] - mission.cave_depth[t]
+        else:
+            self.previous_error = mission.reference[t-1] - mission.cave_depth[t-1]
+            self.current_error = mission.reference[t] - mission.cave_depth[t]
+        
+        u_t = self.Kp*self.current_error + self.Kd*(self.current_error - self.previous_error)
+        return u_t
+
+        #i = len(mission.reference)
+        #self.error = np.zeros(i)
+        #self.input = np.zeros(i)
+        #for n in i:
+            #self.error(n) = mission.reference(n) - mission.cave_depth(n)
+
+        #for n in range(1, i+1):
+            #self.input(n) = self.Kp*self.error(n) + self.Kd*(self.error(n)-self.error(n-1))
 
 
 class ClosedLoop:
-    def __init__(self, plant: Submarine, controller):
+    def __init__(self, plant: Submarine, controller: Control):
         self.plant = plant
         self.controller = controller
 
@@ -101,6 +124,7 @@ class ClosedLoop:
             positions[t] = self.plant.get_position()
             observation_t = self.plant.get_depth()
             # Call your controller here
+            actions[t] = self.controller.controller(t,mission)
             self.plant.transition(actions[t], disturbances[t])
 
         return Trajectory(positions)
@@ -109,5 +133,14 @@ class ClosedLoop:
         disturbances = np.random.normal(0, variance, len(mission.reference))
         return self.simulate(mission, disturbances)
 
+sub = Submarine()
+controller = Control()
+closed_loop = ClosedLoop(sub, controller)
+
 mission = Mission.from_csv('data/mission.csv')
-print(mission) 
+
+trajectory = closed_loop.simulate_with_random_disturbances(mission)
+trajectory.plot_completed_mission(mission)
+
+
+
