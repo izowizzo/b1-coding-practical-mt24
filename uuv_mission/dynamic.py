@@ -26,7 +26,7 @@ class Submarine:
         force_y = -self.drag * self.vel_y + self.actuator_gain * (action + disturbance)
         acc_y = force_y / self.mass
         self.vel_y += acc_y * self.dt
-
+    
     def get_depth(self) -> float:
         return self.pos_y
     
@@ -78,22 +78,28 @@ class Mission:
         # You are required to implement this method
         import pandas as pd
         df = pd.read_csv(file_name)
-        (reference, cave_height, cave_depth) = (df.iloc[:,0], df.iloc[:,1], df.iloc[:,2])
+        array = df.to_numpy()
+        (reference, cave_height, cave_depth) = (array[:,0], array[:,1], array[:,2])
         return cls(reference, cave_height, cave_depth)
         
 class Control:
-    def controller(self, t, mission: Mission):
+    def __init__(self):
         self.Kp = 0.15
-        self.Kd = 0.4
+        self.Kd = 0.6
+        self.previous_error = 0.0
+        self.current_error = 0.0
+
+    def controller(self, t, mission: Mission, observation_t):
         if t == 0:
             self.previous_error = 0.0
-            self.current_error = mission.reference[t] - mission.cave_depth[t]
+            self.current_error = 0.0
         else:
             self.previous_error = mission.reference[t-1] - mission.cave_depth[t-1]
-            self.current_error = mission.reference[t] - mission.cave_depth[t]
+            self.current_error = mission.reference[t] - observation_t
         
         u_t = self.Kp*self.current_error + self.Kd*(self.current_error - self.previous_error)
-        return u_t
+        self.pos_y = mission.cave_depth[t]
+        return u_t, self.pos_y
 
         #i = len(mission.reference)
         #self.error = np.zeros(i)
@@ -124,7 +130,7 @@ class ClosedLoop:
             positions[t] = self.plant.get_position()
             observation_t = self.plant.get_depth()
             # Call your controller here
-            actions[t] = self.controller.controller(t,mission)
+            (actions[t], self.plant.pos_y) = self.controller.controller(t,mission,observation_t)
             self.plant.transition(actions[t], disturbances[t])
 
         return Trajectory(positions)
@@ -133,11 +139,13 @@ class ClosedLoop:
         disturbances = np.random.normal(0, variance, len(mission.reference))
         return self.simulate(mission, disturbances)
 
+#Testing my controller
 sub = Submarine()
 controller = Control()
 closed_loop = ClosedLoop(sub, controller)
 
 mission = Mission.from_csv('data/mission.csv')
+print(mission)
 
 trajectory = closed_loop.simulate_with_random_disturbances(mission)
 trajectory.plot_completed_mission(mission)
