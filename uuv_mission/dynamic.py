@@ -87,19 +87,16 @@ class Control:
         self.Kp = 0.15
         self.Kd = 0.6
         self.previous_error = 0.0
-        self.current_error = 0.0
 
     def controller(self, t, mission: Mission, observation_t):
-        if t == 0:
-            self.previous_error = 0.0
-            self.current_error = 0.0
-        else:
-            self.previous_error = mission.reference[t-1] - mission.cave_depth[t-1]
-            self.current_error = mission.reference[t] - observation_t
+
+        # Want observation to run the most recent
+        self.current_error = mission.reference[t] - observation_t
         
         u_t = self.Kp*self.current_error + self.Kd*(self.current_error - self.previous_error)
-        self.pos_y = mission.cave_depth[t]
-        return u_t, self.pos_y
+        self.previous_error = self.current_error
+        #pos_y = mission.cave_depth[t]
+        return u_t
 
         #i = len(mission.reference)
         #self.error = np.zeros(i)
@@ -129,8 +126,10 @@ class ClosedLoop:
         for t in range(T):
             positions[t] = self.plant.get_position()
             observation_t = self.plant.get_depth()
+            # surely observation_t is the previous output?
             # Call your controller here
-            (actions[t], self.plant.pos_y) = self.controller.controller(t,mission,observation_t)
+            (actions[t]) = self.controller.controller(t, mission, observation_t)
+            # Update the output as well as the action
             self.plant.transition(actions[t], disturbances[t])
 
         return Trajectory(positions)
