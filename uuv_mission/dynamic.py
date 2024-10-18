@@ -90,23 +90,11 @@ class Control:
 
     def controller(self, t, mission: Mission, observation_t):
 
-        # Want observation to run the most recent
         self.current_error = mission.reference[t] - observation_t
         
         u_t = self.Kp*self.current_error + self.Kd*(self.current_error - self.previous_error)
         self.previous_error = self.current_error
-        #pos_y = mission.cave_depth[t]
         return u_t
-
-        #i = len(mission.reference)
-        #self.error = np.zeros(i)
-        #self.input = np.zeros(i)
-        #for n in i:
-            #self.error(n) = mission.reference(n) - mission.cave_depth(n)
-
-        #for n in range(1, i+1):
-            #self.input(n) = self.Kp*self.error(n) + self.Kd*(self.error(n)-self.error(n-1))
-
 
 class ClosedLoop:
     def __init__(self, plant: Submarine, controller: Control):
