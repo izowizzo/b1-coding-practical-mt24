@@ -6,6 +6,7 @@ from terrain import generate_reference_and_limits
 
 class Submarine:
     def __init__(self):
+        """Initialise the values associated with the submarine, including the initial position and velocities"""
 
         self.mass = 1
         self.drag = 0.1
@@ -20,6 +21,8 @@ class Submarine:
 
 
     def transition(self, action: float, disturbance: float):
+        """Updates the position and velocity in the y direction using the control action outputted 
+        from the controller function"""
         self.pos_x += self.vel_x * self.dt
         self.pos_y += self.vel_y * self.dt
 
@@ -28,12 +31,15 @@ class Submarine:
         self.vel_y += acc_y * self.dt
     
     def get_depth(self) -> float:
+        """Returns the y position of submarine as a float"""
         return self.pos_y
     
     def get_position(self) -> tuple:
+        """Returns the x position and y position of submarine as a tuple"""
         return self.pos_x, self.pos_y
     
     def reset_state(self):
+        """Resets the velocities and positions of the submarine to their inital values"""
         self.pos_x = 0
         self.pos_y = 0
         self.vel_x = 1
@@ -41,13 +47,18 @@ class Submarine:
     
 class Trajectory:
     def __init__(self, position: np.ndarray):
+        """Stores the position in the self structure"""
         self.position = position  
         
     def plot(self):
+        """plots the y position vs the x position of the positions stored in self"""
         plt.plot(self.position[:, 0], self.position[:, 1])
         plt.show()
 
     def plot_completed_mission(self, mission: Mission):
+        """Interpolates the x coordinates at regular time intervals. Then plots this against the reference 
+        values from the missions and the position of the submarine (stored in self). Plot then shows the 
+        difference between the trajectory and the reference"""
         x_values = np.arange(len(mission.reference))
         min_depth = np.min(mission.cave_depth)
         max_height = np.max(mission.cave_height)
@@ -64,17 +75,20 @@ class Trajectory:
 
 @dataclass
 class Mission:
+    
     reference: np.ndarray
     cave_height: np.ndarray
     cave_depth: np.ndarray
 
     @classmethod
     def random_mission(cls, duration: int, scale: float):
+        """Randomly generates data to pass through the controller"""
         (reference, cave_height, cave_depth) = generate_reference_and_limits(duration, scale)
         return cls(reference, cave_height, cave_depth)
 
     @classmethod
     def from_csv(cls, file_name: str):
+        """Imports data from a csv file to be passed into the controller"""
         # You are required to implement this method
         import pandas as pd
         df = pd.read_csv(file_name)
@@ -84,14 +98,16 @@ class Mission:
         
 class Control:
     def __init__(self):
+        """Initialises values required to pass through the controller"""
         self.Kp = 0.15
         self.Kd = 0.6
         self.previous_error = 0.0
 
     def controller(self, t, mission: Mission, observation_t):
+        """Takes the y position at time t, before calculating current error. Calculates the control action
+        and returns it as well as updating the previous_error."""
 
         self.current_error = mission.reference[t] - observation_t
-        
         u_t = self.Kp*self.current_error + self.Kd*(self.current_error - self.previous_error)
         self.previous_error = self.current_error
         return u_t
@@ -102,7 +118,8 @@ class ClosedLoop:
         self.controller = controller
 
     def simulate(self,  mission: Mission, disturbances: np.ndarray) -> Trajectory:
-
+        """Simulates the mission by finding the y position at time t and storing it in the 
+        positions array. """
         T = len(mission.reference)
         if len(disturbances) < T:
             raise ValueError("Disturbances must be at least as long as mission duration")
@@ -123,6 +140,7 @@ class ClosedLoop:
         return Trajectory(positions)
         
     def simulate_with_random_disturbances(self, mission: Mission, variance: float = 0.5) -> Trajectory:
+        """Passes random disturbances and mission into the simulate to find the Trajectory"""
         disturbances = np.random.normal(0, variance, len(mission.reference))
         return self.simulate(mission, disturbances)
 
